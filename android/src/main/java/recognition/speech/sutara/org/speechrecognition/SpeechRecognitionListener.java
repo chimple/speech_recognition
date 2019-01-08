@@ -118,7 +118,7 @@ public class SpeechRecognitionListener implements RecognitionListener {
         if (matches != null && matches.size() > 0) {
             String sentence = matches.get(0);
             Log.d(TAG, sentence);
-            onSpeechRecognitionListener.OnSpeechRecognitionFinalResult(sentence, false);
+            onSpeechRecognitionListener.OnSpeechRecognitionFinalResult(sentence, true);
 
         }
     }
