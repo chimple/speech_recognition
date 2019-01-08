@@ -107,7 +107,7 @@ public class SpeechRecognitionListener implements RecognitionListener {
                 break;
         }
         Log.d(TAG, "onError:" + errorMessage + "," + errorCode);
-        onSpeechRecognitionListener.OnSpeechRecognitionError(errorCode, errorMessage, false);
+        onSpeechRecognitionListener.OnSpeechRecognitionError(errorCode, errorMessage, true);
     }
 
     @Override

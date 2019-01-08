@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/services.dart';
 
-typedef void SpeechRecognitionAvailableHandler(bool isSpeechAvailable);
+typedef void SpeechRecognitionBoolHandler(bool isSpeechAvailable);
 typedef void SpeechRecognitionResultHandler(String message);
 typedef void SpeechCurrentLocalHandler(String locale);
 
@@ -18,11 +18,12 @@ class SpeechRecognition {
     _methodChannel.setMethodCallHandler(_registerSpeechAPIHandlers);
   }
 
-  SpeechRecognitionAvailableHandler speechRecognitionAvailableHandler;
+  SpeechRecognitionBoolHandler speechRecognitionAvailableHandler;
   SpeechRecognitionResultHandler speechRecognitionResultHandler;
   SpeechCurrentLocalHandler speechCurrentLocalHandler;
   VoidCallback speechRecognitionOnBeginningHandler;
   VoidCallback speechRecognitionOnEndedHandler;
+  SpeechRecognitionBoolHandler speechRecognitionOnErrorHandler;
 
   static Future<String> get platformVersion async {
     final String version =
@@ -48,13 +49,16 @@ class SpeechRecognition {
       case "SpeechRecognizer.onSpeechRecognitionEnded":
         speechRecognitionOnEndedHandler();
         break;
+      case "SpeechRecognizer.onSpeechRecognitionError":
+        speechRecognitionOnErrorHandler(call.arguments);
+        break;
       default:
         print('Unknown method ${call.method} ');
     }
   }
 
   void setSpeechRecognitionAvailableHandler(
-          SpeechRecognitionAvailableHandler handler) =>
+          SpeechRecognitionBoolHandler handler) =>
       speechRecognitionAvailableHandler = handler;
 
   void setSpeechCurrentLocaleHandler(SpeechCurrentLocalHandler handler) =>
@@ -69,6 +73,10 @@ class SpeechRecognition {
 
   void setSpeechRecognitionOnEndedHandler(VoidCallback handler) =>
       speechRecognitionOnEndedHandler = handler;
+
+  void setSpeechRecognitionOnErrorHandler(
+          SpeechRecognitionBoolHandler handler) =>
+      speechRecognitionOnErrorHandler = handler;
 
   // Operations
 

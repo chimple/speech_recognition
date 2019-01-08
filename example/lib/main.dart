@@ -6,7 +6,7 @@ void main() async {
   runApp(new SpeechRecognitionApp());
 }
 
-const languages = const [const Language('English', 'en_US')];
+const languages = const [const Language('Hindi', 'hi_IN')];
 
 class Language {
   final String name;
@@ -25,8 +25,6 @@ class _SpeechRecognitionState extends State<SpeechRecognitionApp> {
   bool _speechRecognitionAvailable = false;
   bool _isListening = false;
   String speechText = '';
-
-  //String _currentLocale = 'en_US';
   Language selectedLang = languages.first;
 
   @override
@@ -36,7 +34,7 @@ class _SpeechRecognitionState extends State<SpeechRecognitionApp> {
   }
 
   // Platform messages are asynchronous, so we initialize in an async method.
-  void initialize()  {
+  void initialize() {
     SimplePermissions.requestPermission(Permission.RecordAudio);
 
     print('_SpeechRecognitionState.initialize... ');
@@ -46,6 +44,7 @@ class _SpeechRecognitionState extends State<SpeechRecognitionApp> {
     _speech.setSpeechRecognitionOnBeginningHandler(onSpeechRecognitionBegan);
     _speech.setSpeechRecognitionResultHandler(onSpeechRecognitionResult);
     _speech.setSpeechRecognitionOnEndedHandler(onSpeechRecognitionEnded);
+    _speech.setSpeechRecognitionOnErrorHandler(onSpeechRecognitionError);
 
     _speech
         .initialize()
@@ -129,11 +128,9 @@ class _SpeechRecognitionState extends State<SpeechRecognitionApp> {
           print('_SpeechRecognitionAppState.start => result ${result}'));
 
   void cancelListening() {
-    print("cancelListening pressed");
     _speech.cancel().then((result) {
-        print('cancel result: $result');
-        print('_speechRecognitionAvailable $_speechRecognitionAvailable');
-        setState(() => _isListening = !result);
+      print('_speechRecognitionAvailable $_speechRecognitionAvailable');
+      setState(() => _isListening = !result);
     });
   }
 
@@ -159,4 +156,7 @@ class _SpeechRecognitionState extends State<SpeechRecognitionApp> {
     print('_SpeechRecognitionAppState.onSpeechRecognitionEnded');
     setState(() => _isListening = false);
   }
+
+  void onSpeechRecognitionError(bool result) =>
+      setState(() => _isListening = !result);
 }

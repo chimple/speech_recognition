@@ -54,6 +54,8 @@ public class SpeechRecognition {
     }
 
     public void startSpeechRecognition(Locale locale) {
+        Log.d(TAG, "locale country in startSpeechRecognition:" + locale.getCountry());
+        Log.d(TAG, "locale language in startSpeechRecognition:" + locale.getLanguage());
         this.setPreferredLanguage(locale);
         SpeechRecognitionListener speechRecognitionListener = new SpeechRecognitionListener(
                 this.onSpeechRecognitionListener, context);
@@ -67,12 +69,29 @@ public class SpeechRecognition {
         speechRecognizer.stopListening();
     }
 
-    private void initializeSpeechRecognitionParameters() {
+    public void destroy() {
+        if(speechRecognizer != null) {
+            Log.d(TAG, "speechRecognizer destroyed");
+            speechRecognizer.destroy();
+            speechRecognizer = null;
+        }
+    }
+
+
+    public SpeechRecognizer getSpeechRecognizer() {
+        return this.speechRecognizer;
+    }
+
+    public void initializeSpeechRecognitionParameters() {
+        Log.d(TAG, "speechRecognizer initialized ...");
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context);
         recognizerIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         recognizerIntent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, MAX_RESULT_COUNT);
         recognizerIntent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
+        recognizerIntent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 100000);
+        recognizerIntent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 200000);
+        recognizerIntent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 250000);
         /*
          * Only offline recognition works from API level 23
          */

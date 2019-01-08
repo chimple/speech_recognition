@@ -11,5 +11,5 @@ public interface OnSpeechRecognitionListener {
 
     void OnSpeechRecognitionCurrentResult(String currentWord, boolean isFinal);
 
-    void OnSpeechRecognitionError(int errorCode, String errorMsg, boolean isReady);
+    void OnSpeechRecognitionError(int errorCode, String errorMsg, boolean isError);
 }

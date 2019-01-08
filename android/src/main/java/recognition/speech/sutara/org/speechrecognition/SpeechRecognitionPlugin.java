@@ -7,11 +7,18 @@ import io.flutter.plugin.common.MethodChannel.Result;
 import io.flutter.plugin.common.PluginRegistry.Registrar;
 
 
-
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
+import android.content.BroadcastReceiver;
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
+import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
 import android.util.Log;
 
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.Locale;
 
 
@@ -42,7 +49,12 @@ public class SpeechRecognitionPlugin implements MethodCallHandler, OnSpeechRecog
         this.speechChannel = channel;
         this.speechChannel.setMethodCallHandler(this);
         this.activity = activity;
+        this.queryLanguages(activity.getApplicationContext());
+        this.initializeSpeechRecognition();
+    }
 
+    private void initializeSpeechRecognition() {
+        Log.d(TAG, "initializeSpeechRecognition");
         speech = new SpeechRecognition(activity.getApplicationContext());
         speech.setSpeechRecognitionListener(this);
         speech.useOnlyOfflineRecognition(true);
@@ -50,6 +62,9 @@ public class SpeechRecognitionPlugin implements MethodCallHandler, OnSpeechRecog
 
     @Override
     public void onMethodCall(MethodCall call, Result result) {
+        if (this.speech.getSpeechRecognizer() == null) {
+            this.speech.initializeSpeechRecognitionParameters();
+        }
         if (call.method.equals("SpeechRecognizer.initialize")) {
             result.success(true);
             Locale locale = activity.getResources().getConfiguration().locale;
@@ -111,14 +126,92 @@ public class SpeechRecognitionPlugin implements MethodCallHandler, OnSpeechRecog
     }
 
     @Override
-    public void OnSpeechRecognitionError(int errorCode, String errorMsg, boolean isReady) {
+    public void OnSpeechRecognitionError(int errorCode, String errorMsg, boolean isError) {
         Log.d(TAG, "Error generated ->" + errorCode + " -> " + errorMsg);
+        if (errorCode == SpeechRecognizer.ERROR_SERVER) {
+            this.showInstallOfflineVoiceFiles(activity.getApplicationContext());
+            speech.destroy();
+            speechChannel.invokeMethod("SpeechRecognizer.onSpeechRecognitionError", true);
+        } else if (errorCode == SpeechRecognizer.ERROR_NO_MATCH) {
+            speechChannel.invokeMethod("SpeechRecognizer.onSpeechRecognitionError", true);
+        }
         speechChannel.invokeMethod("SpeechRecognizer.onSpeechAvailability", true);
-//        speechChannel.invokeMethod("SpeechRecognizer.onError", errorCode + ": " + errorMsg);
     }
 
     @Override
     public void onReadyForSpeech(boolean isReady) {
         speechChannel.invokeMethod("SpeechRecognizer.onSpeechAvailability", isReady);
     }
+
+    public static final String PACKAGE_NAME_GOOGLE_NOW = "com.google.android.googlequicksearchbox";
+    public static final String ACTIVITY_INSTALL_OFFLINE_FILES = "com.google.android.voicesearch.greco3.languagepack.InstallActivity";
+
+    public static boolean showInstallOfflineVoiceFiles(final Context ctx) {
+
+        final Intent intent = new Intent();
+        intent.setComponent(new ComponentName(PACKAGE_NAME_GOOGLE_NOW, ACTIVITY_INSTALL_OFFLINE_FILES));
+
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+
+        try {
+            ctx.startActivity(intent);
+            return true;
+        } catch (final ActivityNotFoundException e) {
+
+        } catch (final Exception e) {
+
+        }
+
+        return false;
+    }
+
+    /**
+     * Open speech recognition settings activity
+     *
+     * @return true in case activity was launched, false otherwise
+     **/
+    public boolean openSpeechRecognitionSettings(final Context ctx) {
+        Intent intent = new Intent(Intent.ACTION_MAIN);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        boolean started = false;
+        ComponentName[] components = new ComponentName[]{
+                new ComponentName("com.google.android.googlequicksearchbox", "com.google.android.apps.gsa.settingsui.VoiceSearchPreferences"),
+                new ComponentName("com.google.android.voicesearch", "com.google.android.voicesearch.VoiceSearchPreferences"),
+                new ComponentName("com.google.android.googlequicksearchbox", "com.google.android.voicesearch.VoiceSearchPreferences"),
+                new ComponentName("com.google.android.googlequicksearchbox", "com.google.android.apps.gsa.velvet.ui.settings.VoiceSearchPreferences")
+        };
+        for (ComponentName componentName : components) {
+            try {
+                intent.setComponent(componentName);
+                ctx.startActivity(intent);
+                started = true;
+                break;
+            } catch (final Exception e) {
+
+            }
+        }
+        return started;
+    }
+
+    public void queryLanguages(Context ctx) {
+        Intent intent = new Intent(RecognizerIntent.ACTION_GET_LANGUAGE_DETAILS);
+        ctx.sendOrderedBroadcast(intent, null, new HintReceiver(),
+                null, Activity.RESULT_OK, null, null);
+    }
+
+    private static class HintReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            // the list of supported languages.
+            ArrayList<CharSequence> hints = getResultExtras(true)
+                    .getCharSequenceArrayList(
+                            RecognizerIntent.EXTRA_SUPPORTED_LANGUAGES);
+
+            Iterator<CharSequence> itHints = hints.iterator();
+            while (itHints.hasNext()) {
+                Log.d(TAG, "supported language: " + itHints.next());
+            }
+        }
+    }
 }
+
