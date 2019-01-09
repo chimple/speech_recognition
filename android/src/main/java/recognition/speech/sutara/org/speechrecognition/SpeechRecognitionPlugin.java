@@ -32,7 +32,8 @@ public class SpeechRecognitionPlugin implements MethodCallHandler, OnSpeechRecog
     private SpeechRecognition speech;
     private MethodChannel speechChannel;
     String speechText = "";
-    private boolean cancelled = false;
+    private boolean isUserAborted = false;
+    private boolean isSpeechRecognitionEnabled = false;
     private Locale currentLocale = null;
     private Activity activity;
 
@@ -62,34 +63,32 @@ public class SpeechRecognitionPlugin implements MethodCallHandler, OnSpeechRecog
     @Override
     public void onMethodCall(MethodCall call, Result result) {
         if (call.method.equals("SpeechRecognizer.initialize")) {
-            result.success(true);
             this.currentLocale = activity.getResources().getConfiguration().locale;
             initializeSpeechRecognition();
+            this.isSpeechRecognitionEnabled = speech.isSpeechRecognitionAvailable();
             Log.d(TAG, "Current Locale : " + this.currentLocale.toString());
             speechChannel.invokeMethod("SpeechRecognizer.onCurrentLocale", this.currentLocale.toString());
+            speechChannel.invokeMethod("SpeechRecognizer.onSpeechAvailability", this.isSpeechRecognitionEnabled);
+            result.success(isSpeechRecognitionEnabled);
         } else if (call.method.equals("SpeechRecognizer.listen")) {
+            this.isUserAborted = false;
             this.configureLocale((Map<String, String>) call.arguments);
             if (this.speech == null) {
+                Log.d(TAG, "reinitializing speech recognizer ....");
                 initializeSpeechRecognition();
             }
-            cancelled = false;
             speech.startSpeechRecognition(this.currentLocale);
             result.success(true);
-        } else if (call.method.equals("SpeechRecognizer.cancel")) {
-            Log.d(TAG, "SpeechRecognizer.cancel invoked");
-            speech.stopSpeechRecognition();
-            cancelled = true;
-            result.success(true);
         } else if (call.method.equals("SpeechRecognizer.stop")) {
+            this.isUserAborted = true;
             Log.d(TAG, "SpeechRecognizer.stop invoked");
             speech.stopSpeechRecognition();
-            cancelled = true;
             result.success(true);
         } else if (call.method.equals("SpeechRecognizer.changeLocale")) {
+            this.isUserAborted = true;
             Log.d(TAG, "SpeechRecognizer.changeLocale invoked with args:" + call.arguments.toString());
             destroy();
             this.configureLocale((Map<String, String>) call.arguments);
-            cancelled = true;
             result.success(true);
         } else {
             result.notImplemented();
@@ -109,40 +108,41 @@ public class SpeechRecognitionPlugin implements MethodCallHandler, OnSpeechRecog
         speech = null;
     }
 
-    private void sendSpeechText(boolean isFinal) {
-        Log.d(TAG, "sendSpeechText -> " + speechText + " isFinal ->" + isFinal);
-        if(isFinal) {
+    private void sendSpeechText(boolean isCompleted, boolean shouldRestart) {
+        Log.d(TAG, "sendSpeechText -> " + speechText + " isCompleted ->" + isCompleted);
+        if(isCompleted) {
             speechChannel.invokeMethod("SpeechRecognizer.onSpeechRecognitionResult", speechText);
-            speechChannel.invokeMethod("SpeechRecognizer.onSpeechRecognitionEnded", speechText);
-
-        } else {
-            speechChannel.invokeMethod("SpeechRecognizer.onSpeech", speechText);
+            speechText = "";
         }
+
+        if(shouldRestart) {
+            speech.startSpeechRecognition(this.currentLocale);
+        }
+
     }
 
     @Override
     public void OnSpeechRecognitionStarted() {
         speechText = "";
-        speechChannel.invokeMethod("SpeechRecognizer.onSpeechRecognitionBegin", null);
     }
 
     @Override
     public void OnSpeechRecognitionStopped() {
         Log.d(TAG, "listener -> OnSpeechRecognitionStopped");
-        speechChannel.invokeMethod("SpeechRecognizer.onSpeechRecognitionEnded", speechText);
+        speech.startSpeechRecognition(this.currentLocale);
     }
 
     @Override
-    public void OnSpeechRecognitionFinalResult(String finalSentence, boolean isFinal) {
+    public void OnSpeechRecognitionFinalResult(String finalSentence, boolean isCompleted) {
         speechText = finalSentence;
         Log.d(TAG, "onResults -> " + speechText);
-        sendSpeechText(isFinal);
+        sendSpeechText(isCompleted, true);
     }
 
     @Override
-    public void OnSpeechRecognitionCurrentResult(String currentWord, boolean isFinal) {
+    public void OnSpeechRecognitionCurrentResult(String currentWord, boolean isCompleted) {
         speechText = currentWord;
-        sendSpeechText(isFinal);
+        sendSpeechText(isCompleted, false);
     }
 
     @Override
@@ -151,23 +151,22 @@ public class SpeechRecognitionPlugin implements MethodCallHandler, OnSpeechRecog
         if (errorCode == SpeechRecognizer.ERROR_SERVER) {
             this.showInstallOfflineVoiceFiles(activity.getApplicationContext());
             destroy();
-            speechChannel.invokeMethod("SpeechRecognizer.onSpeechRecognitionError", true);
-        } else if (errorCode == SpeechRecognizer.ERROR_NO_MATCH) {
-            speechChannel.invokeMethod("SpeechRecognizer.onSpeechRecognitionError", true);
+            this.handleErrors();
+        } else if (errorCode == SpeechRecognizer.ERROR_NO_MATCH || errorCode == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
+            this.handleErrors();
         }
-        speechChannel.invokeMethod("SpeechRecognizer.onSpeechAvailability", true);
     }
 
-    @Override
-    public void onReadyForSpeech(boolean isReady) {
-        speechChannel.invokeMethod("SpeechRecognizer.onSpeechAvailability", isReady);
+    private void handleErrors() {
+        speechChannel.invokeMethod("SpeechRecognizer.onSpeechRecognitionError", true);
+        speechChannel.invokeMethod("SpeechRecognizer.onSpeechAvailability", this.isSpeechRecognitionEnabled);
+        sendSpeechText(true, false);
     }
 
     public static final String PACKAGE_NAME_GOOGLE_NOW = "com.google.android.googlequicksearchbox";
     public static final String ACTIVITY_INSTALL_OFFLINE_FILES = "com.google.android.voicesearch.greco3.languagepack.InstallActivity";
 
     public static boolean showInstallOfflineVoiceFiles(final Context ctx) {
-
         final Intent intent = new Intent();
         intent.setComponent(new ComponentName(PACKAGE_NAME_GOOGLE_NOW, ACTIVITY_INSTALL_OFFLINE_FILES));
 

@@ -5,8 +5,6 @@ public interface OnSpeechRecognitionListener {
 
     void OnSpeechRecognitionStopped();
 
-    void onReadyForSpeech(boolean result);
-
     void OnSpeechRecognitionFinalResult(String finalSentence, boolean isFinal);
 
     void OnSpeechRecognitionCurrentResult(String currentWord, boolean isFinal);

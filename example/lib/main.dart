@@ -50,9 +50,7 @@ class _SpeechRecognitionState extends State<SpeechRecognitionApp> {
     _speech = new SpeechRecognition();
     _speech.setSpeechRecognitionAvailableHandler(onSpeechRecognitionAvailable);
     _speech.setSpeechCurrentLocaleHandler(onSpeechCurrentLocaleSelected);
-    _speech.setSpeechRecognitionOnBeginningHandler(onSpeechRecognitionBegan);
     _speech.setSpeechRecognitionResultHandler(onSpeechRecognitionResult);
-    _speech.setSpeechRecognitionOnEndedHandler(onSpeechRecognitionEnded);
     _speech.setSpeechRecognitionOnErrorHandler(onSpeechRecognitionError);
 
     _speech
@@ -94,10 +92,6 @@ class _SpeechRecognitionState extends State<SpeechRecognitionApp> {
                         : 'Listen (${selectedLang.lang} - ${selectedLang.country})',
                   ),
                   _buildButton(
-                    onPressed: _isListening ? () => cancelListening() : null,
-                    label: 'Cancel',
-                  ),
-                  _buildButton(
                     onPressed: _isListening ? () => stopListening() : null,
                     label: 'Stop',
                   ),
@@ -119,6 +113,7 @@ class _SpeechRecognitionState extends State<SpeechRecognitionApp> {
 
   void _selectLangHandler(Language lang) {
     print("select lang handler changed: ${lang.country} and ${lang.lang}");
+    speechText = "";
     _speech
         .changeLocale(selectedLang.lang, selectedLang.country)
         .then((result) => setState(() => selectedLang = lang));
@@ -139,15 +134,9 @@ class _SpeechRecognitionState extends State<SpeechRecognitionApp> {
   void startListening() =>
       _speech.listen(selectedLang.lang, selectedLang.country).then((result) {
         print('_SpeechRecognitionAppState.start => result ${result}');
+        speechText = "";
         setState(() => _isListening = true);
       });
-
-  void cancelListening() {
-    _speech.cancel().then((result) {
-      print('_speechRecognitionAvailable $_speechRecognitionAvailable');
-      setState(() => _isListening = !result);
-    });
-  }
 
   void stopListening() =>
       _speech.stop().then((result) => setState(() => _isListening = !result));
@@ -164,18 +153,14 @@ class _SpeechRecognitionState extends State<SpeechRecognitionApp> {
         .firstWhere((l) => l.country == country && l.lang == lang));
   }
 
-  void onSpeechRecognitionBegan() => setState(() => _isListening = true);
-
   void onSpeechRecognitionResult(String text) {
     print('_SpeechRecognitionAppState.onSpeechRecognitionResult -> $text}');
-    setState(() => speechText = text);
+    setState(() => speechText = speechText + " " + text);
   }
 
-  void onSpeechRecognitionEnded() {
-    print('_SpeechRecognitionAppState.onSpeechRecognitionEnded');
+  void onSpeechRecognitionError(bool result) {
+    print('_SpeechRecognitionAppState.onSpeechRecognitionError -> $result}');
     setState(() => _isListening = false);
   }
 
-  void onSpeechRecognitionError(bool result) =>
-      setState(() => _isListening = !result);
 }

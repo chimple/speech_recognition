@@ -21,8 +21,6 @@ class SpeechRecognition {
   SpeechRecognitionBoolHandler speechRecognitionAvailableHandler;
   SpeechRecognitionResultHandler speechRecognitionResultHandler;
   SpeechCurrentLocalHandler speechCurrentLocalHandler;
-  VoidCallback speechRecognitionOnBeginningHandler;
-  VoidCallback speechRecognitionOnEndedHandler;
   SpeechRecognitionBoolHandler speechRecognitionOnErrorHandler;
 
   static Future<String> get platformVersion async {
@@ -40,17 +38,8 @@ class SpeechRecognition {
       case "SpeechRecognizer.onCurrentLocale":
         speechCurrentLocalHandler(call.arguments);
         break;
-      case "SpeechRecognizer.onSpeech":
-        speechRecognitionResultHandler(call.arguments);
-        break;
       case "SpeechRecognizer.onSpeechRecognitionResult":
         speechRecognitionResultHandler(call.arguments);
-        break;
-      case "SpeechRecognizer.onSpeechRecognitionBegin":
-        speechRecognitionOnBeginningHandler();
-        break;
-      case "SpeechRecognizer.onSpeechRecognitionEnded":
-        speechRecognitionOnEndedHandler();
         break;
       case "SpeechRecognizer.onSpeechRecognitionError":
         speechRecognitionOnErrorHandler(call.arguments);
@@ -71,12 +60,6 @@ class SpeechRecognition {
           SpeechRecognitionResultHandler handler) =>
       speechRecognitionResultHandler = handler;
 
-  void setSpeechRecognitionOnBeginningHandler(VoidCallback handler) =>
-      speechRecognitionOnBeginningHandler = handler;
-
-  void setSpeechRecognitionOnEndedHandler(VoidCallback handler) =>
-      speechRecognitionOnEndedHandler = handler;
-
   void setSpeechRecognitionOnErrorHandler(
           SpeechRecognitionBoolHandler handler) =>
       speechRecognitionOnErrorHandler = handler;
@@ -89,9 +72,6 @@ class SpeechRecognition {
   Future<dynamic> listen(String lang, String country) =>
       _methodChannel.invokeMethod("SpeechRecognizer.listen",
           <String, String>{'lang': lang, 'country': country});
-
-  Future<dynamic> cancel() =>
-      _methodChannel.invokeMethod("SpeechRecognizer.cancel");
 
   Future<dynamic> stop() =>
       _methodChannel.invokeMethod("SpeechRecognizer.stop");
