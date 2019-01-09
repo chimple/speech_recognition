@@ -137,8 +137,10 @@ class _SpeechRecognitionState extends State<SpeechRecognitionApp> {
       );
 
   void startListening() =>
-      _speech.listen(selectedLang.lang, selectedLang.country).then((result) =>
-          print('_SpeechRecognitionAppState.start => result ${result}'));
+      _speech.listen(selectedLang.lang, selectedLang.country).then((result) {
+        print('_SpeechRecognitionAppState.start => result ${result}');
+        setState(() => _isListening = true);
+      });
 
   void cancelListening() {
     _speech.cancel().then((result) {
@@ -168,7 +170,6 @@ class _SpeechRecognitionState extends State<SpeechRecognitionApp> {
     print('_SpeechRecognitionAppState.onSpeechRecognitionResult -> $text}');
     setState(() => speechText = text);
   }
-
 
   void onSpeechRecognitionEnded() {
     print('_SpeechRecognitionAppState.onSpeechRecognitionEnded');
