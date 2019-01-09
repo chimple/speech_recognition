@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 
 typedef void SpeechRecognitionBoolHandler(bool isSpeechAvailable);
 typedef void SpeechRecognitionResultHandler(String message);
-typedef void SpeechCurrentLocalHandler(String locale);
+typedef void SpeechCurrentLocalHandler(Map<String, String> map);
 
 class SpeechRecognition {
   static final SpeechRecognition _instance = new SpeechRecognition._internal();
@@ -41,6 +41,9 @@ class SpeechRecognition {
         speechCurrentLocalHandler(call.arguments);
         break;
       case "SpeechRecognizer.onSpeech":
+        speechRecognitionResultHandler(call.arguments);
+        break;
+      case "SpeechRecognizer.onSpeechRecognitionResult":
         speechRecognitionResultHandler(call.arguments);
         break;
       case "SpeechRecognizer.onSpeechRecognitionBegin":
@@ -83,12 +86,17 @@ class SpeechRecognition {
   Future<dynamic> initialize() =>
       _methodChannel.invokeMethod("SpeechRecognizer.initialize");
 
-  Future<dynamic> listen({String locale}) =>
-      _methodChannel.invokeMethod("SpeechRecognizer.listen", locale);
+  Future<dynamic> listen(String lang, String country) =>
+      _methodChannel.invokeMethod("SpeechRecognizer.listen",
+          <String, String>{'lang': lang, 'country': country});
 
   Future<dynamic> cancel() =>
       _methodChannel.invokeMethod("SpeechRecognizer.cancel");
 
   Future<dynamic> stop() =>
       _methodChannel.invokeMethod("SpeechRecognizer.stop");
+
+  Future<dynamic> changeLocale(String lang, String country) =>
+      _methodChannel.invokeMethod("SpeechRecognizer.changeLocale",
+          <String, String>{'lang': lang, 'country': country});
 }

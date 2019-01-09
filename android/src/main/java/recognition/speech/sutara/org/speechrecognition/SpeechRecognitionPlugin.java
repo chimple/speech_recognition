@@ -20,6 +20,7 @@ import android.util.Log;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Locale;
+import java.util.Map;
 
 
 /**
@@ -28,12 +29,11 @@ import java.util.Locale;
 public class SpeechRecognitionPlugin implements MethodCallHandler, OnSpeechRecognitionListener {
 
     private static final String TAG = "SpeechRecognitionPlugin";
-
     private SpeechRecognition speech;
     private MethodChannel speechChannel;
     String speechText = "";
     private boolean cancelled = false;
-    private Intent recognizerIntent;
+    private Locale currentLocale = null;
     private Activity activity;
 
     /**
@@ -50,30 +50,30 @@ public class SpeechRecognitionPlugin implements MethodCallHandler, OnSpeechRecog
         this.speechChannel.setMethodCallHandler(this);
         this.activity = activity;
         this.queryLanguages(activity.getApplicationContext());
-        this.initializeSpeechRecognition();
     }
 
     private void initializeSpeechRecognition() {
         Log.d(TAG, "initializeSpeechRecognition");
-        speech = new SpeechRecognition(activity.getApplicationContext());
+        speech = new SpeechRecognition(activity.getApplicationContext(), this.currentLocale);
         speech.setSpeechRecognitionListener(this);
         speech.useOnlyOfflineRecognition(true);
     }
 
     @Override
     public void onMethodCall(MethodCall call, Result result) {
-        if (this.speech.getSpeechRecognizer() == null) {
-            this.speech.initializeSpeechRecognitionParameters();
-        }
         if (call.method.equals("SpeechRecognizer.initialize")) {
             result.success(true);
-            Locale locale = activity.getResources().getConfiguration().locale;
-            speech.setPreferredLanguage(locale);
-            Log.d(TAG, "Current Locale : " + locale.toString());
-            speechChannel.invokeMethod("SpeechRecognizer.onCurrentLocale", locale.toString());
+            this.currentLocale = activity.getResources().getConfiguration().locale;
+            initializeSpeechRecognition();
+            Log.d(TAG, "Current Locale : " + this.currentLocale.toString());
+            speechChannel.invokeMethod("SpeechRecognizer.onCurrentLocale", this.currentLocale.toString());
         } else if (call.method.equals("SpeechRecognizer.listen")) {
+            this.configureLocale((Map<String, String>) call.arguments);
+            if (this.speech == null) {
+                initializeSpeechRecognition();
+            }
             cancelled = false;
-            speech.startSpeechRecognition(getLocale(call.arguments.toString()));
+            speech.startSpeechRecognition(this.currentLocale);
             result.success(true);
         } else if (call.method.equals("SpeechRecognizer.cancel")) {
             Log.d(TAG, "SpeechRecognizer.cancel invoked");
@@ -85,19 +85,39 @@ public class SpeechRecognitionPlugin implements MethodCallHandler, OnSpeechRecog
             speech.stopSpeechRecognition();
             cancelled = true;
             result.success(true);
+        } else if (call.method.equals("SpeechRecognizer.changeLocale")) {
+            Log.d(TAG, "SpeechRecognizer.changeLocale invoked with args:" + call.arguments.toString());
+            destroy();
+            this.configureLocale((Map<String, String>) call.arguments);
+            cancelled = true;
+            result.success(true);
         } else {
             result.notImplemented();
         }
     }
 
-    private Locale getLocale(String code) {
-        String[] localeParts = code.split("_");
-        return new Locale(localeParts[0], localeParts[1]);
+    private void configureLocale(Map<String, String> args) {
+        String lang = args.get("lang");
+        String country = args.get("country");
+        Log.d(TAG, "listen lang : " + lang);
+        Log.d(TAG, "listen country : " + lang);
+        this.currentLocale = new Locale(lang, country);
+    }
+
+    private void destroy() {
+        speech.destroy();
+        speech = null;
     }
 
     private void sendSpeechText(boolean isFinal) {
         Log.d(TAG, "sendSpeechText -> " + speechText + " isFinal ->" + isFinal);
-        speechChannel.invokeMethod(isFinal ? "SpeechRecognizer.onSpeechRecognitionEnded" : "SpeechRecognizer.onSpeech", speechText);
+        if(isFinal) {
+            speechChannel.invokeMethod("SpeechRecognizer.onSpeechRecognitionResult", speechText);
+            speechChannel.invokeMethod("SpeechRecognizer.onSpeechRecognitionEnded", speechText);
+
+        } else {
+            speechChannel.invokeMethod("SpeechRecognizer.onSpeech", speechText);
+        }
     }
 
     @Override
@@ -130,7 +150,7 @@ public class SpeechRecognitionPlugin implements MethodCallHandler, OnSpeechRecog
         Log.d(TAG, "Error generated ->" + errorCode + " -> " + errorMsg);
         if (errorCode == SpeechRecognizer.ERROR_SERVER) {
             this.showInstallOfflineVoiceFiles(activity.getApplicationContext());
-            speech.destroy();
+            destroy();
             speechChannel.invokeMethod("SpeechRecognizer.onSpeechRecognitionError", true);
         } else if (errorCode == SpeechRecognizer.ERROR_NO_MATCH) {
             speechChannel.invokeMethod("SpeechRecognizer.onSpeechRecognitionError", true);

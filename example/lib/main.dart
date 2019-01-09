@@ -1,21 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:meta/meta.dart';
 import 'package:speech_recognition/speech_recognition.dart';
 import 'package:simple_permissions/simple_permissions.dart';
 
 void main() async {
-  runApp(new SpeechRecognitionApp());
+  runApp(new SpeechRecognitionApp(lang: 'en', country: 'US'));
 }
 
-const languages = const [const Language('Hindi', 'hi_IN')];
+const supportedLanguages = const [
+  const Language('en', 'US'),
+  const Language('hi', 'IN')
+];
 
 class Language {
-  final String name;
-  final String code;
+  final String lang;
+  final String country;
 
-  const Language(this.name, this.code);
+  const Language(this.lang, this.country);
 }
 
 class SpeechRecognitionApp extends StatefulWidget {
+  final String lang;
+  final String country;
+
+  SpeechRecognitionApp({@required this.lang, @required this.country});
+
   @override
   _SpeechRecognitionState createState() => new _SpeechRecognitionState();
 }
@@ -25,7 +34,7 @@ class _SpeechRecognitionState extends State<SpeechRecognitionApp> {
   bool _speechRecognitionAvailable = false;
   bool _isListening = false;
   String speechText = '';
-  Language selectedLang = languages.first;
+  Language selectedLang = supportedLanguages.first;
 
   @override
   initState() {
@@ -82,7 +91,7 @@ class _SpeechRecognitionState extends State<SpeechRecognitionApp> {
                         : null,
                     label: _isListening
                         ? 'Listening...'
-                        : 'Listen (${selectedLang.code})',
+                        : 'Listen (${selectedLang.lang} - ${selectedLang.country})',
                   ),
                   _buildButton(
                     onPressed: _isListening ? () => cancelListening() : null,
@@ -99,16 +108,20 @@ class _SpeechRecognitionState extends State<SpeechRecognitionApp> {
     );
   }
 
-  List<CheckedPopupMenuItem<Language>> get _buildLanguagesWidgets => languages
-      .map((l) => new CheckedPopupMenuItem<Language>(
-            value: l,
-            checked: selectedLang == l,
-            child: new Text(l.name),
-          ))
-      .toList();
+  List<CheckedPopupMenuItem<Language>> get _buildLanguagesWidgets =>
+      supportedLanguages
+          .map((l) => new CheckedPopupMenuItem<Language>(
+                value: l,
+                checked: selectedLang == l,
+                child: new Text(l.lang + '_' + l.country),
+              ))
+          .toList();
 
   void _selectLangHandler(Language lang) {
-    setState(() => selectedLang = lang);
+    print("select lang handler changed: ${lang.country} and ${lang.lang}");
+    _speech
+        .changeLocale(selectedLang.lang, selectedLang.country)
+        .then((result) => setState(() => selectedLang = lang));
   }
 
   Widget _buildButton({String label, VoidCallback onPressed}) => new Padding(
@@ -124,7 +137,7 @@ class _SpeechRecognitionState extends State<SpeechRecognitionApp> {
       );
 
   void startListening() =>
-      _speech.listen(locale: selectedLang.code).then((result) =>
+      _speech.listen(selectedLang.lang, selectedLang.country).then((result) =>
           print('_SpeechRecognitionAppState.start => result ${result}'));
 
   void cancelListening() {
@@ -140,17 +153,22 @@ class _SpeechRecognitionState extends State<SpeechRecognitionApp> {
   void onSpeechRecognitionAvailable(bool result) =>
       setState(() => _speechRecognitionAvailable = result);
 
-  void onSpeechCurrentLocaleSelected(String locale) {
+  void onSpeechCurrentLocaleSelected(Map<String, String> currentLocale) {
+    String lang = currentLocale['lang'];
+    String country = currentLocale['country'];
     print(
-        '_SpeechRecognitionAppState.onSpeechCurrentLocaleSelected... $locale');
-    setState(
-        () => selectedLang = languages.firstWhere((l) => l.code == locale));
+        '_SpeechRecognitionAppState.onSpeechCurrentLocaleSelected lang $lang and country $country');
+    setState(() => selectedLang = supportedLanguages
+        .firstWhere((l) => l.country == country && l.lang == lang));
   }
 
   void onSpeechRecognitionBegan() => setState(() => _isListening = true);
 
-  void onSpeechRecognitionResult(String text) =>
-      setState(() => speechText = text);
+  void onSpeechRecognitionResult(String text) {
+    print('_SpeechRecognitionAppState.onSpeechRecognitionResult -> $text}');
+    setState(() => speechText = text);
+  }
+
 
   void onSpeechRecognitionEnded() {
     print('_SpeechRecognitionAppState.onSpeechRecognitionEnded');
