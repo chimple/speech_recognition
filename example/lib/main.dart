@@ -111,12 +111,12 @@ class _SpeechRecognitionState extends State<SpeechRecognitionApp> {
               ))
           .toList();
 
-  void _selectLangHandler(Language lang) {
-    print("select lang handler changed: ${lang.country} and ${lang.lang}");
+  void _selectLangHandler(Language selectedNewLang) async {
+    print(
+        "select lang handler changed: ${selectedNewLang.country} and ${selectedNewLang.lang}");
     speechText = "";
-    _speech
-        .changeLocale(selectedLang.lang, selectedLang.country)
-        .then((result) => setState(() => selectedLang = lang));
+    setState(() => selectedLang = selectedNewLang);
+    await _speech.changeLocale(selectedNewLang.lang, selectedNewLang.country);
   }
 
   Widget _buildButton({String label, VoidCallback onPressed}) => new Padding(
@@ -162,5 +162,4 @@ class _SpeechRecognitionState extends State<SpeechRecognitionApp> {
     print('_SpeechRecognitionAppState.onSpeechRecognitionError -> $result}');
     setState(() => _isListening = false);
   }
-
 }

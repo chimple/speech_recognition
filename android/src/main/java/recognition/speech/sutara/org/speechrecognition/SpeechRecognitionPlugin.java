@@ -89,6 +89,10 @@ public class SpeechRecognitionPlugin implements MethodCallHandler, OnSpeechRecog
             Log.d(TAG, "SpeechRecognizer.changeLocale invoked with args:" + call.arguments.toString());
             destroy();
             this.configureLocale((Map<String, String>) call.arguments);
+            if (this.speech == null) {
+                Log.d(TAG, "reinitializing speech recognizer ....");
+                initializeSpeechRecognition();
+            }
             result.success(true);
         } else {
             result.notImplemented();
@@ -99,14 +103,17 @@ public class SpeechRecognitionPlugin implements MethodCallHandler, OnSpeechRecog
         String lang = args.get("lang");
         String country = args.get("country");
         Log.d(TAG, "listen lang : " + lang);
-        Log.d(TAG, "listen country : " + lang);
+        Log.d(TAG, "listen country : " + country);
         this.currentLocale = new Locale(lang, country);
     }
 
     private void destroy() {
-        speech.destroy();
-        speech = null;
+        if (speech != null) {
+            speech.destroy();
+            speech = null;
+        }
     }
+
 
     private void sendSpeechText(boolean isCompleted, boolean shouldRestart) {
         Log.d(TAG, "sendSpeechText -> " + speechText + " isCompleted ->" + isCompleted);
